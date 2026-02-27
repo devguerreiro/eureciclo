@@ -1,4 +1,5 @@
 import io
+import xml.etree.ElementTree as ET
 import zipfile
 
 from fastapi import FastAPI, UploadFile, HTTPException
@@ -15,12 +16,19 @@ async def upload(file: UploadFile):
     content = await file.read()
     zip_buffer = io.BytesIO(content)
 
+    extracted_data = []
     try:
         with zipfile.ZipFile(zip_buffer) as z:
             for filename in z.namelist():
-                pass
+                if not filename.endswith(".xml"):
+                    continue
+                with z.open(filename) as xml_file:
+                    tree = ET.parse(xml_file)
+                    root = tree.getroot()
+
+                    extracted_data.append(root.findtext("name"))
 
     except zipfile.BadZipFile:
         raise HTTPException(status_code=400, detail="invalid or corrupted zip file")
 
-    return
+    return extracted_data

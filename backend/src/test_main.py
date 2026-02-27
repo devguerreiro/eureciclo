@@ -11,7 +11,9 @@ client = TestClient(app)
 def create_mock_zip():
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "a") as z:
-        z.writestr("file.xml", "<xml></xml>")
+        z.writestr("file1.xml", "<xml><name>foo</name></xml>")
+        z.writestr("file2.xml", "<xml><name>bar</name></xml>")
+        z.writestr("ignore.txt", "foobar")
     zip_buffer.seek(0)
     return zip_buffer
 
@@ -23,6 +25,10 @@ def test_upload_zip_success():
     response = client.post("/upload", files=files)
 
     assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 2
+    assert "foo" in data
+    assert "bar" in data
 
 
 def test_upload_invalid_extension():
