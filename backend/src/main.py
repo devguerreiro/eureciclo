@@ -2,9 +2,11 @@ from typing import List
 
 from fastapi import FastAPI, UploadFile, HTTPException, Depends
 
-from src.services.xml_processor import XMLStreamProcessor
+from src.services.xml_processor import ExtractedData, XMLStreamProcessor
 
 app = FastAPI()
+
+extracted_data: List[ExtractedData] = []
 
 
 # DESIGN PATTERN: Dependency Injection.
@@ -13,7 +15,7 @@ def get_processor():
     return XMLStreamProcessor()
 
 
-@app.post("/upload", response_model=List[dict])
+@app.post("/upload")
 async def upload(
     file: UploadFile, processor: XMLStreamProcessor = Depends(get_processor)
 ):
@@ -25,11 +27,17 @@ async def upload(
     # Se usasse 'await file.read()', o servidor tentaria colocar tudo na RAM e poderia quebrar.
     # Ao passar 'file.file', é passado apenas a referência para abrir o arquivo do disco.
     try:
+        global extracted_data
         # PERFORMANCE: Transforma o gerador em lista apenas para o retorno JSON.
         # Se precisasse salvar num banco, faria: for item in processor.process_zip_stream(...):
         # e nunca usaria list(), mantendo o uso de RAM próximo de zero.
-        results = list(processor.process_zip_stream(file.file))
-        return results
+        extracted_data = list(processor.process_zip_stream(file.file))
+        return extracted_data
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal Error: {str(e)}")
+
+
+@app.get("/extracted-data", response_model=List[ExtractedData])
+def get_extracted_data() -> List[ExtractedData]:
+    return extracted_data

@@ -1,8 +1,18 @@
 import zipfile
 
-from typing import Generator, Dict, Any, Optional
+from typing import Generator, Optional
+from pydantic import BaseModel
 
 from lxml import etree
+
+
+class ExtractedData(BaseModel):
+    identifica: str
+    data: str
+    ementa: str | None = None
+    titulo: str | None = None
+    subtitulo: str | None = None
+    texto: str
 
 
 class XMLStreamProcessor:
@@ -15,7 +25,7 @@ class XMLStreamProcessor:
             remove_blank_text=True,  # PERFORMANCE: Economiza memória removendo espaços inúteis entre tags
         )
 
-    def _parse_xml_content(self, xml_data: bytes) -> Optional[Dict[str, Any]]:
+    def _parse_xml_content(self, xml_data: bytes) -> Optional[ExtractedData]:
         try:
             # PERFORMANCE: etree.fromstring() em bytes é mais rápido que etree.parse() em arquivos
             # para o lxml, pois ele processa o bloco de memória diretamente em C.
@@ -27,18 +37,18 @@ class XMLStreamProcessor:
 
             # CLEAN CODE: Uso de dicionário tipado.
             # O .findtext() é mais seguro que .find().text pois não quebra se a tag faltar.
-            return {
-                "identifica": (body.findtext("Identifica") or "").strip(),
-                "data": (body.findtext("Data") or "").strip(),
-                "ementa": (body.findtext("Ementa") or "").strip(),
-                "titulo": (body.findtext("Titulo") or "").strip(),
-                "subtitulo": (body.findtext("SubTitulo") or "").strip(),
-                "texto": (body.findtext("Texto") or "").strip(),
-            }
+            return ExtractedData(
+                identifica=(body.findtext("Identifica") or "").strip(),
+                data=(body.findtext("Data") or "").strip(),
+                ementa=(body.findtext("Ementa") or "").strip(),
+                titulo=(body.findtext("Titulo") or "").strip(),
+                subtitulo=(body.findtext("SubTitulo") or "").strip(),
+                texto=(body.findtext("Texto") or "").strip(),
+            )
         except Exception:
             return None  # Fail-safe: Se um XML estiver podre, o sistema ignora e segue o próximo.
 
-    def process_zip_stream(self, file_stream) -> Generator[Dict[str, Any], None, None]:
+    def process_zip_stream(self, file_stream) -> Generator[ExtractedData, None, None]:
         # PERFORMANCE: 'with' para garantir que o ponteiro do arquivo seja fechado após o uso.
         with zipfile.ZipFile(file_stream) as z:
             for filename in z.namelist():
