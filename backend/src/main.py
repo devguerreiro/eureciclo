@@ -1,3 +1,4 @@
+import os
 from typing import List
 
 from fastapi import FastAPI, UploadFile, HTTPException, Depends, BackgroundTasks
@@ -9,7 +10,7 @@ app = FastAPI()
 
 # Configurações AMQP
 AMQP_CONFIG = {
-    "url": "amqp://guest:guest@localhost:5672/",
+    "url": os.getenv("AMQP_URL", "amqp://guest:guest@localhost:5672/"),
     "queue": "xml_extracted_data",
 }
 

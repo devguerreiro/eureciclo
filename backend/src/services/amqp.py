@@ -26,7 +26,7 @@ class AMQPPublisher:
             channel.basic_publish(
                 exchange="",
                 routing_key=self.queue_name,
-                body=json.dumps(item),  # Transforma o dicionário em texto JSON
+                body=item.model_dump_json(),  # Transforma o dicionário em texto JSON
                 properties=pika.BasicProperties(
                     delivery_mode=2,  # PERSISTÊNCIA: Grava a mensagem no disco do broker
                     content_type="application/json",

@@ -1,0 +1,30 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq_broker
+    ports:
+      - "5672:5672" # Porta do protocolo AMQP
+      - "15672:15672" # Porta do painel de controle (Management UI)
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  fastapi_app:
+    build: .
+    container_name: fastapi_backend
+    ports:
+      - "8000:8000"
+    environment:
+      # IMPORTANTE: No Docker, o host do AMQP não é 'localhost',
+      # mas sim o nome do serviço definido acima ('rabbitmq')
+      AMQP_URL: amqp://guest:guest@rabbitmq:5672/
+    depends_on:
+      rabbitmq:
+        condition: service_healthy # Só sobe o FastAPI quando o RabbitMQ der "ping" com sucesso
+    volumes:
+      - .:/app # Hot-reload para desenvolvimento
