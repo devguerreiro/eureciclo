@@ -1,10 +1,17 @@
 from typing import List
 
-from fastapi import FastAPI, UploadFile, HTTPException, Depends
+from fastapi import FastAPI, UploadFile, HTTPException, Depends, BackgroundTasks
 
+from src.services.amqp import AMQPPublisher
 from src.services.xml_processor import ExtractedData, XMLStreamProcessor
 
 app = FastAPI()
+
+# Configurações AMQP
+AMQP_CONFIG = {
+    "url": "amqp://guest:guest@localhost:5672/",
+    "queue": "xml_extracted_data",
+}
 
 extracted_data: List[ExtractedData] = []
 
@@ -16,9 +23,7 @@ def get_processor():
 
 
 @app.post("/upload")
-async def upload(
-    file: UploadFile, processor: XMLStreamProcessor = Depends(get_processor)
-):
+def upload(file: UploadFile, processor: XMLStreamProcessor = Depends(get_processor)):
     if not file.filename or not file.filename.endswith(".zip"):
         raise HTTPException(status_code=400, detail="Must be a .zip file")
 
@@ -39,5 +44,23 @@ async def upload(
 
 
 @app.get("/extracted-data", response_model=List[ExtractedData])
-def get_extracted_data() -> List[ExtractedData]:
+def get_extracted_data(background_tasks: BackgroundTasks) -> List[ExtractedData]:
+    # SEGURANÇA: Verifica se a variável global tem dados antes de agir.
+    if not extracted_data:
+        return []
+
+    # INSTANCIAÇÃO: Cria o serviço que sabe falar com o RabbitMQ.
+    publisher = AMQPPublisher(AMQP_CONFIG["url"], AMQP_CONFIG["queue"])
+
+    # --- O PONTO CHAVE DA PERFORMANCE ---
+    # DESIGN PATTERN: Worker Thread / Background Task.
+    # Em vez de chamar publisher.publish_batch(DATA_STORAGE) diretamente,
+    # é feito o agendamento utilizando o próprio FastAPI.
+    background_tasks.add_task(publisher.publish_batch, extracted_data)
+
+    # O comando acima diz: "FastAPI, assim que você enviar a resposta HTTP
+    # pro usuário, execute esta função aqui no fundo sem travar nada".
+
+    # RETORNO IMEDIATO: O usuário recebe o JSON na hora.
+    # Ele não precisa esperar o loop das mensagens terminar.
     return extracted_data
