@@ -14,7 +14,7 @@ AMQP_CONFIG = {
     "queue": "xml_extracted_data",
 }
 
-extracted_data: List[ExtractedData] = []
+DATA_STORAGE: List[ExtractedData] = []
 
 
 # DESIGN PATTERN: Dependency Injection.
@@ -33,12 +33,12 @@ def upload(file: UploadFile, processor: XMLStreamProcessor = Depends(get_process
     # Se usasse 'await file.read()', o servidor tentaria colocar tudo na RAM e poderia quebrar.
     # Ao passar 'file.file', é passado apenas a referência para abrir o arquivo do disco.
     try:
-        global extracted_data
+        global DATA_STORAGE
         # PERFORMANCE: Transforma o gerador em lista apenas para o retorno JSON.
         # Se precisasse salvar num banco, faria: for item in processor.process_zip_stream(...):
         # e nunca usaria list(), mantendo o uso de RAM próximo de zero.
-        extracted_data = list(processor.process_zip_stream(file.file))
-        return extracted_data
+        DATA_STORAGE = list(processor.process_zip_stream(file.file))
+        return DATA_STORAGE
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal Error: {str(e)}")
@@ -47,7 +47,7 @@ def upload(file: UploadFile, processor: XMLStreamProcessor = Depends(get_process
 @app.get("/extracted-data", response_model=List[ExtractedData])
 def get_extracted_data(background_tasks: BackgroundTasks) -> List[ExtractedData]:
     # SEGURANÇA: Verifica se a variável global tem dados antes de agir.
-    if not extracted_data:
+    if not DATA_STORAGE:
         return []
 
     # INSTANCIAÇÃO: Cria o serviço que sabe falar com o RabbitMQ.
@@ -57,11 +57,11 @@ def get_extracted_data(background_tasks: BackgroundTasks) -> List[ExtractedData]
     # DESIGN PATTERN: Worker Thread / Background Task.
     # Em vez de chamar publisher.publish_batch(DATA_STORAGE) diretamente,
     # é feito o agendamento utilizando o próprio FastAPI.
-    background_tasks.add_task(publisher.publish_batch, extracted_data)
+    background_tasks.add_task(publisher.publish_batch, DATA_STORAGE)
 
     # O comando acima diz: "FastAPI, assim que você enviar a resposta HTTP
     # pro usuário, execute esta função aqui no fundo sem travar nada".
 
     # RETORNO IMEDIATO: O usuário recebe o JSON na hora.
     # Ele não precisa esperar o loop das mensagens terminar.
-    return extracted_data
+    return DATA_STORAGE

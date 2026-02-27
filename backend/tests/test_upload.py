@@ -13,7 +13,7 @@ client = TestClient(main.app)
 @pytest.fixture(autouse=True)
 def clear_storage():
     """Limpa a variável global antes de cada teste."""
-    main.extracted_data.clear()
+    main.DATA_STORAGE.clear()
 
 
 # --- TESTES DO ENDPOINT DE UPLOAD ---
@@ -46,13 +46,13 @@ def test_upload_valid_zip():
     )
 
     assert response.status_code == 200
-    assert len(main.extracted_data) == 1
-    assert main.extracted_data[0].identifica == "foo"
-    assert main.extracted_data[0].data == "bar"
-    assert main.extracted_data[0].ementa == "foobar"
-    assert main.extracted_data[0].titulo == "fizz"
-    assert main.extracted_data[0].subtitulo == "buzz"
-    assert main.extracted_data[0].texto == "fizzbuzz"
+    assert len(main.DATA_STORAGE) == 1
+    assert main.DATA_STORAGE[0].identifica == "foo"
+    assert main.DATA_STORAGE[0].data == "bar"
+    assert main.DATA_STORAGE[0].ementa == "foobar"
+    assert main.DATA_STORAGE[0].titulo == "fizz"
+    assert main.DATA_STORAGE[0].subtitulo == "buzz"
+    assert main.DATA_STORAGE[0].texto == "fizzbuzz"
 
 
 def test_upload_invalid_extension():
@@ -80,7 +80,7 @@ def test_get_extracted_data_and_publish(mock_publish):
         "subtitulo": "",
         "texto": "",
     }
-    main.extracted_data.append(mock_data)
+    main.DATA_STORAGE.append(mock_data)
 
     # 2. Chama o endpoint GET
     response = client.get("/extracted-data")
@@ -93,7 +93,7 @@ def test_get_extracted_data_and_publish(mock_publish):
 
     # Verifica se o publisher foi chamado (via BackgroundTask)
     # Nota: No TestClient, background tasks rodam de forma síncrona ao final
-    mock_publish.assert_called_once_with(main.extracted_data)
+    mock_publish.assert_called_once_with(main.DATA_STORAGE)
 
 
 def test_get_extracted_data_empty():
