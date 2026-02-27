@@ -25,8 +25,17 @@ async def upload(file: UploadFile):
                 with z.open(filename) as xml_file:
                     tree = ET.parse(xml_file)
                     root = tree.getroot()
-
-                    extracted_data.append(root.findtext("name"))
+                    body = root.find(".//body")
+                    if body is not None:
+                        data = {
+                            "identifica": body.findtext("Identifica"),
+                            "data": body.findtext("Data"),
+                            "ementa": body.findtext("Ementa"),
+                            "titulo": body.findtext("Titulo"),
+                            "subtitulo": body.findtext("Subtitulo"),
+                            "texto": body.findtext("Texto"),
+                        }
+                        extracted_data.append(data)
 
     except zipfile.BadZipFile:
         raise HTTPException(status_code=400, detail="invalid or corrupted zip file")
